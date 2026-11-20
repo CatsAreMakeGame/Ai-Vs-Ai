@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChichiOS</title>
+<style>
+:root{--accent:#78a9ff;--glass:rgba(22,27,39,.82);--panel:rgba(18,23,34,.94);--text:#f4f6fb;--muted:#aeb8ca;--line:rgba(255,255,255,.13);--shadow:0 18px 55px rgba(0,0,0,.38)}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:Inter,"Segoe UI",system-ui,sans-serif;color:var(--text);background:#101827}button,input,textarea,select{font:inherit}button{cursor:pointer;color:inherit}
+#desktop{position:relative;width:100%;height:100%;overflow:hidden;background:linear-gradient(135deg,#142b4c,#263f70 48%,#6c547d);background-size:cover;background-position:center}
+#desktop:before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 72% 25%,rgba(133,180,255,.38),transparent 38%),radial-gradient(ellipse at 20% 85%,rgba(155,108,202,.35),transparent 42%);pointer-events:none}
+#desktopIcons{position:absolute;top:18px;left:14px;display:grid;grid-auto-flow:row;grid-template-columns:82px;gap:10px;z-index:1}
+.desk-icon{width:78px;min-height:76px;border:1px solid transparent;background:transparent;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;text-shadow:0 1px 4px #000; font-size:12px;padding:7px 3px}
+.desk-icon:hover,.desk-icon:focus{background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.18);outline:none}
+.desk-icon .ico{font-size:30px;filter:drop-shadow(0 2px 3px #0005)}
+#clockWidget{position:absolute;right:24px;top:22px;text-align:right;text-shadow:0 2px 8px #0008;z-index:1}
+#clockTime{font-size:32px;font-weight:300;letter-spacing:1px}#clockDate{font-size:13px;color:#e2e8f3}
+#taskbar{position:absolute;z-index:10000;bottom:0;left:0;right:0;height:58px;display:flex;align-items:center;justify-content:center;gap:7px;padding:6px 14px;background:rgba(13,18,28,.72);backdrop-filter:blur(24px);border-top:1px solid rgba(255,255,255,.15)}
+.taskbtn{height:42px;min-width:42px;padding:0 12px;border:1px solid transparent;border-radius:10px;background:transparent;font-size:19px}
+.taskbtn:hover,.taskbtn.active{background:rgba(255,255,255,.14);border-color:var(--line)}
+#taskApps{display:flex;gap:5px;align-items:center}
+#taskRight{position:absolute;right:17px;display:flex;align-items:center;gap:12px;font-size:12px;color:#e6ebf4}
+#startMenu{position:absolute;z-index:10001;bottom:66px;left:50%;transform:translateX(-50%);width:min(430px,calc(100vw - 24px));padding:18px;background:var(--panel);backdrop-filter:blur(30px);border:1px solid var(--line);border-radius:17px;box-shadow:var(--shadow);display:none}
+#startMenu.show{display:block;animation:pop .16s ease-out}
+@keyframes pop{from{opacity:0;transform:translate(-50%,8px) scale(.98)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+.start-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-weight:650}
+.start-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.start-app{border:1px solid transparent;background:rgba(255,255,255,.055);border-radius:12px;padding:14px 7px;display:flex;flex-direction:column;align-items:center;gap:7px;font-size:12px}
+.start-app:hover{background:rgba(255,255,255,.13);border-color:var(--line)}.start-app span:first-child{font-size:26px}
+.start-foot{margin-top:15px;padding-top:12px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px}
+.window{position:absolute;z-index:10;min-width:290px;min-height:190px;width:650px;height:430px;max-width:calc(100vw - 20px);max-height:calc(100vh - 75px);background:var(--panel);backdrop-filter:blur(28px);border:1px solid rgba(255,255,255,.2);border-radius:13px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;resize:both;animation:winIn .16s ease-out}
+@keyframes winIn{from{opacity:0;transform:scale(.97) translateY(5px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.window.focused{border-color:color-mix(in srgb,var(--accent),white 15%);box-shadow:0 20px 65px rgba(0,0,0,.48),0 0 0 1px color-mix(in srgb,var(--accent),transparent 65%)}
+.titlebar{height:43px;min-height:43px;display:flex;align-items:center;gap:10px;padding:0 10px 0 14px;background:rgba(255,255,255,.055);border-bottom:1px solid var(--line);cursor:move;user-select:none}
+.titlebar .appico{font-size:17px}.win-title{font-size:13px;font-weight:600;flex:1}
+.win-controls{display:flex;gap:4px}.win-controls button{width:29px;height:27px;border:0;border-radius:6px;background:transparent;color:#dbe2ee}.win-controls button:hover{background:rgba(255,255,255,.14)}.win-controls .close:hover{background:#d94b58}
+.win-body{flex:1;min-height:0;overflow:auto;padding:15px}
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:13px}
+.ui-btn,.toolbar button{border:1px solid var(--line);background:rgba(255,255,255,.075);border-radius:8px;padding:7px 11px;font-size:12px}
+.ui-btn:hover,.toolbar button:hover{background:rgba(255,255,255,.15)}
+input,textarea,select{color:var(--text);background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:8px;padding:9px;outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+input::placeholder,textarea::placeholder{color:#94a0b5}
+.file-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:8px}
+.file-item{padding:13px 8px;border:1px solid transparent;border-radius:10px;text-align:center;background:rgba(255,255,255,.035);cursor:pointer;min-width:0}
+.file-item:hover,.file-item.selected{background:rgba(120,169,255,.15);border-color:rgba(120,169,255,.45)}
+.file-item .file-emoji{font-size:29px;display:block;margin-bottom:6px}.file-item .file-name{font-size:12px;overflow-wrap:anywhere}
+.empty{padding:35px 12px;text-align:center;color:var(--muted);font-size:13px}
+.note-layout{height:100%;display:flex;flex-direction:column;gap:9px}.note-title{width:100%;font-size:17px;font-weight:650}.note-text{width:100%;flex:1;min-height:120px;resize:none;line-height:1.55}
+.calc{max-width:330px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.calc-display{grid-column:1/-1;height:72px;text-align:right;font-size:29px;font-weight:300;padding:15px}.calc button{height:55px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.08);font-size:18px}.calc button:hover{background:rgba(255,255,255,.17)}.calc .op{background:rgba(120,169,255,.2)}.calc .equals{background:var(--accent);color:#10203b;font-weight:700}
+.settings-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}.settings-row small{display:block;color:var(--muted);margin-top:3px}
+.swatches{display:flex;gap:9px;flex-wrap:wrap}.swatch{width:55px;height:38px;border:2px solid transparent;border-radius:8px}.swatch.chosen{border-color:white;outline:2px solid var(--accent)}
+.wallpapers{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.wallpaper{height:75px;border:2px solid transparent;border-radius:9px}.wallpaper.chosen{border-color:white;outline:2px solid var(--accent)}
+.context-menu{position:absolute;z-index:10002;display:none;min-width:155px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:5px;box-shadow:var(--shadow)}.context-menu button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px;border-radius:6px;font-size:12px}.context-menu button:hover{background:rgba(255,255,255,.12)}
+.toast{position:absolute;z-index:10003;bottom:72px;left:50%;transform:translateX(-50%);background:rgba(12,17,27,.94);border:1px solid var(--line);padding:10px 15px;border-radius:10px;font-size:12px;box-shadow:var(--shadow);animation:pop .15s ease}
+@media(max-width:650px){#clockWidget{top:10px;right:12px}#clockTime{font-size:24px}.window{left:5px!important;top:8px!important;width:calc(100vw - 10px)!important;height:calc(100vh - 76px)!important;resize:none}.desk-icon{width:65px}.taskbtn{min-width:38px;padding:0 8px}#taskRight{display:none}}
+</style>
+</head>
+<body>
+<div id="desktop">
+  <div id="desktopIcons">
+    <button class="desk-icon" data-open="files"><span class="ico">📁</span><span>Files</span></button>
+    <button class="desk-icon" data-open="notes"><span class="ico">📝</span><span>Notes</span></button>
+    <button class="desk-icon" data-open="calculator"><span class="ico">🧮</span><span>Calculator</span></button>
+    <button class="desk-icon" data-open="settings"><span class="ico">⚙️</span><span>Settings</span></button>
+  </div>
+  <div id="clockWidget"><div id="clockTime">--:--</div><div id="clockDate"></div></div>
+  <div id="startMenu">
+    <div class="start-head"><span>ChichiOS</span><span style="color:var(--muted);font-size:12px;font-weight:400">Apps</span></div>
+    <div class="start-grid">
+      <button class="start-app" data-open="files"><span>📁</span>File manager</button>
+      <button class="start-app" data-open="notes"><span>📝</span>Notes</button>
+      <button class="start-app" data-open="calculator"><span>🧮</span>Calculator</button>
+      <button class="start-app" data-open="settings"><span>⚙️</span>Settings</button>
+    </div>
+    <div class="start-foot"><span>Local desktop simulator</span><button class="ui-btn" id="powerBtn">⏻ Power</button></div>
+  </div>
+  <div id="taskbar">
+    <button class="taskbtn" id="startBtn" title="Start">⊞</button>
+    <div id="taskApps"></div>
+    <div id="taskRight"><span>◉ Wi-Fi</span><span>🔊</span><span id="taskClock">--:--</span></div>
+  </div>
+  <div class="context-menu" id="contextMenu"></div>
+</div>
+<script>
+(()=>{
+'use strict';
+const $=s=>document.querySelector(s), desktop=$('#desktop'), taskApps=$('#taskApps'), startMenu=$('#startMenu'), contextMenu=$('#contextMenu');
+const apps={
+ files:{title:'File Manager',icon:'📁',width:650,height:440},
+ notes:{title:'Notes',icon:'📝',width:520,height:430},
+ calculator:{title:'Calculator',icon:'🧮',width:360,height:490},
+ settings:{title:'Settings',icon:'⚙️',width:570,height:440}
+};
+let z=20,winCount=0,windows={},active=null,selectedFile=null;
+const defaults=[
+ {id:'welcome',name:'Welcome.txt',type:'txt',content:'Welcome to ChichiOS!\\n\\nThis is your desktop. Open apps from the Start menu or desktop icons.'},
+ {id:'ideas',name:'Ideas.txt',type:'txt',content:'Things to build:\\n- A game\\n- A website\\n- Something cool'}
+];
+let files=load('chichios-files',defaults);
+let notes=load('chichios-notes',[{id:'note1',title:'Welcome',body:'Welcome to ChichiOS notes.\\nYour notes save automatically.'}]);
+let prefs=load('chichios-prefs',{theme:'dark',accent:'#78a9ff',wallpaper:0});
+function load(k,f){try{const v=localStorage.getItem(k);return v?JSON.parse(v):structuredClone(f)}catch(e){return f}}
+function save(){localStorage.setItem('chichios-files',JSON.stringify(files));localStorage.setItem('chichios-notes',JSON.stringify(notes));localStorage.setItem('chichios-prefs',JSON.stringify(prefs))}
+function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;desktop.append(t);setTimeout(()=>t.remove(),2300)}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function updateClock(){const d=new Date();$('#clockTime').textContent=d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});$('#clockDate').textContent=d.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric'});$('#taskClock').textContent=d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}
+updateClock();setInterval(updateClock,1000);
+function applyPrefs(){document.documentElement.style.setProperty('--accent',prefs.accent);if(prefs.theme==='light'){document.documentElement.style.setProperty('--panel','rgba(238,243,251,.96)');document.documentElement.style.setProperty('--glass','rgba(245,248,253,.85)');document.documentElement.style.setProperty('--text','#172033');document.documentElement.style.setProperty('--muted','#59677d');document.documentElement.style.setProperty('--line','rgba(20,35,60,.16)')}else{document.documentElement.style.setProperty('--panel','rgba(18,23,34,.94)');document.documentElement.style.setProperty('--glass','rgba(22,27,39,.82)');document.documentElement.style.setProperty('--text','#f4f6fb');document.documentElement.style.setProperty('--muted','#aeb8ca');document.documentElement.style.setProperty('--line','rgba(255,255,255,.13)')}
+const walls=['linear-gradient(135deg,#142b4c,#263f70 48%,#6c547d)','radial-gradient(circle at 75% 25%,#ffbd7b,transparent 28%),linear-gradient(135deg,#482d55,#c06c84 55%,#f3a683)','radial-gradient(circle at 25% 25%,#6ed4c4,transparent 30%),linear-gradient(135deg,#123d46,#226c79 55%,#8bc6a8)','linear-gradient(135deg,#141821,#353d4f 50%,#6c7485)'];desktop.style.background=walls[prefs.wallpaper]||walls[0];}
+applyPrefs();
+function openApp(id){if(!apps[id])return;startMenu.classList.remove('show');if(windows[id]){const w=windows[id];w.el.style.display='flex';w.min=false;focus(id);return}
+const app=apps[id],el=document.createElement('section');el.className='window';el.dataset.app=id;el.style.width=app.width+'px';el.style.height=app.height+'px';el.style.left=Math.max(12,(innerWidth-app.width)/2+winCount*18)+'px';el.style.top=Math.max(12,(innerHeight-app.height-58)/2+winCount*14)+'px';el.style.zIndex=++z;
+el.innerHTML=`<div class="titlebar"><span class="appico">${app.icon}</span><span class="win-title">${app.title}</span><div class="win-controls"><button data-act="min" title="Minimise">—</button><button data-act="max" title="Maximise">□</button><button class="close" data-act="close" title="Close">×</button></div></div><div class="win-body" id="body-${id}"></div>`;
+desktop.append(el);windows[id]={el,min:false,max:false,restore:null};winCount++;focus(id);renderApp(id);
+el.addEventListener('pointerdown',()=>focus(id));el.querySelector('.win-controls').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const a=b.dataset.act;if(a==='close')closeApp(id);if(a==='min')minApp(id);if(a==='max')maxApp(id)});
+makeDraggable(el,id);
+}
+function focus(id){if(!windows[id])return;active=id;Object.entries(windows).forEach(([k,v])=>{v.el.classList.toggle('focused',k===id);if(k===id)v.el.style.zIndex=++z});renderTaskbar()}
+function closeApp(id){if(!windows[id])return;windows[id].el.remove();delete windows[id];if(active===id)active=Object.keys(windows).pop()||null;renderTaskbar()}
+function minApp(id){if(!windows[id])return;windows[id].el.style.display='none';windows[id].min=true;if(active===id)active=Object.keys(windows).find(k=>!windows[k].min)||null;renderTaskbar()}
+function maxApp(id){const w=windows[id];if(!w)return;if(!w.max){w.restore={left:w.el.style.left,top:w.el.style.top,width:w.el.style.width,height:w.el.style.height};Object.assign(w.el.style,{left:'0px',top:'0px',width:'100%',height:'calc(100% - 58px)',maxWidth:'none',maxHeight:'none',resize:'none'});w.max=true}else{Object.assign(w.el.style,w.restore);w.el.style.maxWidth='calc(100vw - 20px)';w.el.style.maxHeight='calc(100vh - 75px)';w.el.style.resize='both';w.max=false}}
+function renderTaskbar(){taskApps.innerHTML='';Object.entries(windows).forEach(([id,w])=>{const b=document.createElement('button');b.className='taskbtn'+(active===id?' active':'');b.title=apps[id].title;b.textContent=apps[id].icon;b.onclick=()=>{if(w.min){w.el.style.display='flex';w.min=false;focus(id)}else if(active===id)minApp(id);else focus(id)};taskApps.append(b)})}
+function makeDraggable(el,id){const bar=el.querySelector('.titlebar');let sx,sy,sl,st,drag=false;bar.addEventListener('pointerdown',e=>{if(e.target.closest('button')||windows[id].max)return;drag=true;focus(id);sx=e.clientX;sy=e.clientY;sl=el.offsetLeft;st=el.offsetTop;bar.setPointerCapture(e.pointerId)});bar.addEventListener('pointermove',e=>{if(!drag)return;el.style.left=Math.max(0,Math.min(innerWidth-el.offsetWidth,sl+e.clientX-sx))+'px';el.style.top=Math.max(0,Math.min(innerHeight-75,st+e.clientY-sy))+'px'});bar.addEventListener('pointerup',()=>drag=false);bar.addEventListener('pointercancel',()=>drag=false)}
+function renderApp(id){const body=$('#body-'+id);if(!body)return;if(id==='files')renderFiles(body);if(id==='notes')renderNotes(body);if(id==='calculator')renderCalc(body);if(id==='settings')renderSettings(body)}
+function renderFiles(body){body.innerHTML=`<div class="toolbar"><button id="newFile">＋ New file</button><button id="renameFile">Rename</button><button id="deleteFile">Delete</button><span style="margin-left:auto;color:var(--muted);font-size:12px">This PC · Documents</span></div><div class="file-list" id="fileList"></div>`;const list=body.querySelector('#fileList');files.forEach(f=>{const d=document.createElement('div');d.className='file-item'+(selectedFile===f.id?' selected':'');d.innerHTML=`<span class="file-emoji">${f.type==='folder'?'📁':'📄'}</span><span class="file-name">${esc(f.name)}</span>`;d.onclick=()=>{selectedFile=f.id;renderFiles(body)};d.ondblclick=()=>editFile(f.id);list.append(d)});if(!files.length)list.innerHTML='<div class="empty">This folder is empty.</div>';
+body.querySelector('#newFile').onclick=()=>{const name=prompt('New file name:','New file.txt');if(!name)return;if(files.some(f=>f.name.toLowerCase()===name.toLowerCase()))return toast('A file with that name already exists.');files.push({id:'f'+Date.now(),name,type:'txt',content:''});save();renderFiles(body)};
+body.querySelector('#renameFile').onclick=()=>{const f=files.find(x=>x.id===selectedFile);if(!f)return toast('Select a file first.');const name=prompt('New name:',f.name);if(!name)return;if(files.some(x=>x.id!==f.id&&x.name.toLowerCase()===name.toLowerCase()))return toast('That name is already in use.');f.name=name;save();renderFiles(body)};
+body.querySelector('#deleteFile').onclick=()=>{const i=files.findIndex(x=>x.id===selectedFile);if(i<0)return toast('Select a file first.');if(confirm('Delete '+files[i].name+'?')){files.splice(i,1);selectedFile=null;save();renderFiles(body)}};
+}
+function editFile(id){const f=files.find(x=>x.id===id);if(!f)return;const content=prompt('Edit file contents:',f.content);if(content===null)return;f.content=content;save();toast('File saved')}
+function renderNotes(body){if(!notes.length)notes.push({id:'note'+Date.now(),title:'New note',body:''});let current=notes[0];body.innerHTML=`<div class="note-layout"><div class="toolbar"><select id="noteSelect" style="flex:1;min-width:120px"></select><button id="addNote">＋ New</button><button id="delNote">Delete</button><span id="savedLabel" style="font-size:11px;color:var(--muted)">Saved</span></div><input class="note-title" id="noteTitle" placeholder="Note title"><textarea class="note-text" id="noteBody" placeholder="Start typing..."></textarea></div>`;
+const sel=body.querySelector('#noteSelect'),title=body.querySelector('#noteTitle'),text=body.querySelector('#noteBody'),label=body.querySelector('#savedLabel');function loadNote(){current=notes.find(n=>n.id===sel.value)||notes[0];title.value=current.title;text.value=current.body}notes.forEach(n=>{const o=document.createElement('option');o.value=n.id;o.textContent=n.title||'Untitled';sel.append(o)});sel.value=current.id;loadNote();function persist(){current.title=title.value;current.body=text.value;const opt=[...sel.options].find(o=>o.value===current.id);if(opt)opt.textContent=current.title||'Untitled';save();label.textContent='Saved';}title.addEventListener('input',()=>{label.textContent='Saving…';persist()});text.addEventListener('input',()=>{label.textContent='Saving…';persist()});sel.onchange=loadNote;body.querySelector('#addNote').onclick=()=>{const n={id:'note'+Date.now(),title:'Untitled',body:''};notes.unshift(n);save();renderNotes(body);body.querySelector('#noteTitle').focus()};body.querySelector('#delNote').onclick=()=>{if(notes.length===1)return toast('Keep at least one note.');if(confirm('Delete this note?')){notes=notes.filter(n=>n.id!==current.id);save();renderNotes(body)}}}
+function renderCalc(body){body.innerHTML=`<div class="calc"><input class="calc-display" id="calcDisplay" value="0" readonly><button data-v="C">C</button><button data-v="(">(</button><button data-v=")">)</button><button class="op" data-v="/">÷</button><button data-v="7">7</button><button data-v="8">8</button><button data-v="9">9</button><button class="op" data-v="*">×</button><button data-v="4">4</button><button data-v="5">5</button><button data-v="6">6</button><button class="op" data-v="-">−</button><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button class="op" data-v="+">+</button><button data-v="0" style="grid-column:span 2">0</button><button data-v=".">.</button><button class="equals" data-v="=">=</button></div>`;const display=body.querySelector('#calcDisplay');let expr='';body.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{const v=b.dataset.v;if(v==='C')expr='';else if(v==='='){try{if(!/^[0-9+*/().%\\s-]+$/.test(expr))throw Error();const result=Function('"use strict";return ('+expr+')')();if(!Number.isFinite(result))throw Error();expr=String(Number(result.toFixed(10)))}catch(e){expr='Error'}}else if(expr==='Error')expr=v;else expr+=v;display.value=expr||'0'})}
+function renderSettings(body){const walls=['linear-gradient(135deg,#142b4c,#263f70 48%,#6c547d)','radial-gradient(circle at 75% 25%,#ffbd7b,transparent 28%),linear-gradient(135deg,#482d55,#c06c84 55%,#f3a683)','radial-gradient(circle at 25% 25%,#6ed4c4,transparent 30%),linear-gradient(135deg,#123d46,#226c79 55%,#8bc6a8)','linear-gradient(135deg,#141821,#353d4f 50%,#6c7485)'];body.innerHTML=`<h3 style="margin:0 0 5px">Personalisation</h3><div class="settings-row"><div><b>Theme</b><small>Choose your desktop appearance</small></div><select id="themeSelect"><option value="dark">Dark</option><option value="light">Light</option></select></div><div class="settings-row"><div><b>Accent colour</b><small>Used for highlights and active windows</small></div><div class="swatches" id="swatches"></div></div><div class="settings-row" style="display:block"><b>Wallpaper</b><small style="display:block;margin:4px 0 10px">Choose a desktop background</small><div class="wallpapers" id="wallpapers"></div></div><div style="color:var(--muted);font-size:12px;margin-top:14px">ChichiOS · Browser-based desktop simulator</div>`;
+const ts=body.querySelector('#themeSelect');ts.value=prefs.theme;ts.onchange=()=>{prefs.theme=ts.value;save();applyPrefs()};const colors=['#78a9ff','#a78bfa','#55d6be','#ff9f70','#f472b6','#e6c15a'];const sw=body.querySelector('#swatches');colors.forEach(c=>{const b=document.createElement('button');b.className='swatch'+(prefs.accent===c?' chosen':'');b.style.background=c;b.title=c;b.onclick=()=>{prefs.accent=c;save();applyPrefs();renderSettings(body)};sw.append(b)});const wp=body.querySelector('#wallpapers');walls.forEach((w,i)=>{const b=document.createElement('button');b.className='wallpaper'+(prefs.wallpaper===i?' chosen':'');b.style.background=w;b.title='Wallpaper '+(i+1);b.onclick=()=>{prefs.wallpaper=i;save();applyPrefs();renderSettings(body)};wp.append(b)})}
+$('#startBtn').onclick=()=>startMenu.classList.toggle('show');document.addEventListener('click',e=>{if(!e.target.closest('#startMenu')&&!e.target.closest('#startBtn'))startMenu.classList.remove('show')});document.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>openApp(b.dataset.open)));$('#powerBtn').onclick=()=>{startMenu.classList.remove('show');toast('ChichiOS is still running. You can close this tab to exit.')};
+desktop.addEventListener('contextmenu',e=>{if(e.target.closest('.window')||e.target.closest('#taskbar'))return;e.preventDefault();contextMenu.style.display='block';contextMenu.style.left=Math.min(e.clientX,innerWidth-170)+'px';contextMenu.style.top=Math.min(e.clientY,innerHeight-120)+'px';contextMenu.innerHTML='<button data-cmd="refresh">↻ Refresh desktop</button><button data-cmd="notes">📝 New note</button><button data-cmd="settings">⚙️ Personalise</button>';});document.addEventListener('click',e=>{if(!e.target.closest('#contextMenu'))contextMenu.style.display='none'});contextMenu.addEventListener('click',e=>{const cmd=e.target.dataset.cmd;if(cmd==='refresh')toast('Desktop refreshed');if(cmd==='notes'){openApp('notes');const b=$('#body-notes');b?.querySelector('#addNote')?.click()}if(cmd==='settings')openApp('settings')});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){startMenu.classList.remove('show');contextMenu.style.display='none'}if(e.altKey&&e.key==='F4'&&active){e.preventDefault();closeApp(active)}});
+window.addEventListener('resize',()=>Object.values(windows).forEach(w=>{if(!w.max){w.el.style.left=Math.min(parseInt(w.el.style.left)||0,Math.max(0,innerWidth-w.el.offsetWidth))+'px';w.el.style.top=Math.min(parseInt(w.el.style.top)||0,Math.max(0,innerHeight-75-w.el.offsetHeight))+'px'}}));
+})();
+</script>
+</body>
+</html>
