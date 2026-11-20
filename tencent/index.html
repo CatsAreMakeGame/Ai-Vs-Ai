@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NovaOS — Mini Desktop</title>
+<style>
+/* ============================================================
+   1. THEME TOKENS
+   ============================================================ */
+:root{
+  --bg:#0d1222; --panel:#171e33; --panel2:#202a46; --text:#e9eeff;
+  --muted:#93a0c8; --accent:#7d8cff; --accent-soft:rgba(125,140,255,.18);
+  --border:rgba(255,255,255,.10); --glass:rgba(16,22,42,.82);
+  --shadow:0 24px 60px rgba(0,0,0,.45); --ok:#4ade80; --warn:#fbbf24; --bad:#fb7185;
+  --task-h:54px; --radius:14px;
+}
+body[data-theme="light"]{
+  --bg:#e9eefb; --panel:#ffffff; --panel2:#f1f5ff; --text:#1a2340;
+  --muted:#5c6a91; --accent:#4f63e9; --accent-soft:rgba(79,99,233,.13);
+  --border:rgba(20,35,80,.14); --glass:rgba(255,255,255,.86);
+  --shadow:0 20px 50px rgba(35,50,100,.22);
+}
+body[data-theme="emerald"]{
+  --bg:#071611; --panel:#10261f; --panel2:#16352a; --text:#e4fff2;
+  --muted:#87bfa4; --accent:#34d399; --accent-soft:rgba(52,211,153,.16);
+  --border:rgba(120,255,200,.12); --glass:rgba(9,30,23,.86);
+  --shadow:0 24px 60px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;margin:0;overflow:hidden}
+body{
+  font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  color:var(--text); background:var(--bg); user-select:none;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ============================================================
+   2. DESKTOP + WALLPAPER + ICONS
+   ============================================================ */
+#desktop{position:fixed;inset:0;overflow:hidden}
+#wallpaper{position:absolute;inset:0;z-index:0;transition:background .6s ease,filter .4s ease}
+#wallpaper[data-style="aurora"]{background:
+  radial-gradient(ellipse at 18% 18%,rgba(125,140,255,.55),transparent 55%),
+  radial-gradient(ellipse at 82% 22%,rgba(236,72,153,.35),transparent 50%),
+  radial-gradient(ellipse at 55% 90%,rgba(34,211,238,.30),transparent 60%),
+  linear-gradient(140deg,#0b1026,#1a1b45 55%,#0d1f3a)}
+#wallpaper[data-style="sunset"]{background:
+  radial-gradient(circle at 70% 25%,rgba(253,224,71,.55),transparent 35%),
+  radial-gradient(ellipse at 30% 80%,rgba(244,63,94,.40),transparent 55%),
+  linear-gradient(160deg,#2b1055,#7b2d6b 55%,#f97316)}
+#wallpaper[data-style="ocean"]{background:
+  radial-gradient(ellipse at 25% 25%,rgba(56,189,248,.45),transparent 55%),
+  radial-gradient(ellipse at 85% 75%,rgba(16,185,129,.32),transparent 50%),
+  linear-gradient(150deg,#042a46,#075985 60%,#022c33)}
+#wallpaper[data-style="forest"]{background:
+  radial-gradient(ellipse at 20% 80%,rgba(132,204,22,.30),transparent 55%),
+  radial-gradient(ellipse at 80% 20%,rgba(52,211,153,.28),transparent 50%),
+  linear-gradient(150deg,#052e26,#14532d 60%,#0b2018)}
+#wallpaper[data-style="mono"]{background:
+  repeating-linear-gradient(135deg,rgba(255,255,255,.035) 0 2px,transparent 2px 22px),
+  linear-gradient(145deg,#111827,#1f2937 60%,#0f172a)}
+#wallpaper[data-style="candy"]{background:
+  radial-gradient(circle at 20% 30%,rgba(244,114,182,.45),transparent 45%),
+  radial-gradient(circle at 75% 70%,rgba(129,140,248,.45),transparent 50%),
+  linear-gradient(140deg,#2d1b4e,#4c1d95 55%,#1e3a8a)}
+#icons{position:absolute;top:18px;left:14px;z-index:1;display:flex;flex-direction:column;gap:8px;flex-wrap:wrap;max-height:calc(100% - 110px)}
+.icon{
+  width:88px;padding:10px 4px 8px;border-radius:12px;text-align:center;
+  border:1px solid transparent;transition:transform .16s ease,background .16s ease,border-color .16s ease;
+}
+.icon:hover{background:rgba(255,255,255,.10);transform:translateY(-2px)}
+.icon.selected{background:rgba(125,140,255,.24);border-color:rgba(255,255,255,.28)}
+.icon .glyph{font-size:30px;display:block;line-height:1.1;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}
+.icon .label{display:block;font-size:12px;margin-top:6px;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ============================================================
+   3. WINDOWS
+   ============================================================ */
+#windows{position:absolute;inset:0 0 var(--task-h) 0;z-index:2;pointer-events:none}
+.window{
+  position:absolute;display:flex;flex-direction:column;min-width:300px;min-height:190px;
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden;pointer-events:auto;
+  opacity:0;transform:translateY(14px) scale(.97);
+  transition:opacity .2s ease,transform .2s cubic-bezier(.2,.9,.3,1),left .18s ease,top .18s ease,width .18s ease,height .18s ease;
+}
+.window.ready{opacity:1;transform:none}
+.window.no-transition{transition:none}
+.window.active{border-color:color-mix(in srgb,var(--accent) 65%,transparent);box-shadow:0 0 0 1px var(--accent-soft),var(--shadow)}
+.window.minimizing{opacity:0;transform:translateY(260px) scale(.55);pointer-events:none}
+.titlebar{
+  height:40px;flex:0 0 40px;display:flex;align-items:center;gap:8px;padding:0 8px 0 12px;
+  background:linear-gradient(90deg,var(--panel2),var(--panel));border-bottom:1px solid var(--border);
+  cursor:grab;touch-action:none;
+}
+.titlebar:active{cursor:grabbing}
+.win-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.win-icon{font-size:16px}
+.win-controls{display:flex;gap:4px;flex:0 0 auto}
+.win-controls button{width:26px;height:26px;border-radius:7px;color:var(--muted);font-size:13px;line-height:1;transition:background .15s,color .15s}
+.win-controls button:hover{background:rgba(255,255,255,.12);color:var(--text)}
+.win-controls button[data-act="close"]:hover{background:#e11d48;color:#fff}
+.win-body{flex:1;min-height:0;overflow:hidden;position:relative;background:var(--panel)}
+.resize-handle{position:absolute;z-index:3;touch-action:none}
+.resize-handle[data-dir="n"]{top:0;left:8px;right:8px;height:6px;cursor:ns-resize}
+.resize-handle[data-dir="s"]{bottom:0;left:8px;right:8px;height:6px;cursor:ns-resize}
+.resize-handle[data-dir="w"]{left:0;top:8px;bottom:8px;width:6px;cursor:ew-resize}
+.resize-handle[data-dir="e"]{right:0;top:8px;bottom:8px;width:6px;cursor:ew-resize}
+.resize-handle[data-dir="ne"]{top:0;right:0;width:14px;height:14px;cursor:nesw-resize}
+.resize-handle[data-dir="nw"]{top:0;left:0;width:14px;height:14px;cursor:nwse-resize}
+.resize-handle[data-dir="se"]{bottom:0;right:0;width:16px;height:16px;cursor:nwse-resize}
+.resize-handle[data-dir="sw"]{bottom:0;left:0;width:14px;height:14px;cursor:nesw-resize}
+
+/* ============================================================
+   4. TASKBAR + START MENU
+   ============================================================ */
+#taskbar{
+  position:absolute;left:0;right:0;bottom:0;height:var(--task-h);z-index:3;
+  display:flex;align-items:center;gap:8px;padding:0 12px;
+  background:var(--glass);backdrop-filter:blur(18px);border-top:1px solid var(--border);
+  box-shadow:0 -8px 30px rgba(0,0,0,.25);
+}
+#startBtn{
+  width:38px;height:38px;border-radius:10px;font-size:20px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--accent),color-mix(in srgb,var(--accent) 50%,#ec4899));
+  color:#fff;box-shadow:0 6px 16px var(--accent-soft);transition:transform .15s;
+}
+#startBtn:hover{transform:translateY(-2px) rotate(-5deg)}
+#taskWindows{display:flex;gap:6px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+#taskWindows::-webkit-scrollbar{display:none}
+.task-item{
+  height:36px;min-width:120px;max-width:180px;padding:0 10px;border-radius:9px;
+  display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);
+  border:1px solid transparent;transition:background .15s,color .15s,border-color .15s;
+}
+.task-item span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task-item:hover{background:rgba(255,255,255,.08);color:var(--text)}
+.task-item.active{background:var(--accent-soft);color:var(--text);border-color:color-mix(in srgb,var(--accent) 50%,transparent)}
+.task-item.minimized{opacity:.65}
+.tray{display:flex;align-items:center;gap:10px;padding-left:10px;border-left:1px solid var(--border)}
+.tray .clock{text-align:right;line-height:1.2}
+.tray .clock b{display:block;font-size:13px;font-variant-numeric:tabular-nums}
+.tray .clock small{display:block;font-size:10px;color:var(--muted)}
+#startMenu{
+  position:absolute;left:12px;bottom:calc(var(--task-h) + 10px);width:330px;z-index:4;
+  background:var(--glass);backdrop-filter:blur(24px);border:1px solid var(--border);
+  border-radius:16px;box-shadow:var(--shadow);padding:14px;
+  opacity:0;transform:translateY(18px) scale(.97);pointer-events:none;
+  transition:opacity .18s ease,transform .18s cubic-bezier(.2,.9,.3,1);
+}
+#startMenu.open{opacity:1;transform:none;pointer-events:auto}
+#startSearch{
+  width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--border);
+  background:rgba(255,255,255,.06);margin-bottom:12px;font-size:13px;
+}
+.start-label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:10px 2px 8px}
+.start-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.start-tile{
+  padding:10px 4px;border-radius:11px;text-align:center;font-size:11px;
+  border:1px solid transparent;transition:background .15s,transform .15s;
+}
+.start-tile:hover{background:var(--accent-soft);border-color:var(--border);transform:translateY(-2px)}
+.start-tile .glyph{display:block;font-size:23px;margin-bottom:5px}
+.start-foot{margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
+
+/* ============================================================
+   5. SHARED UI (buttons, modal, toast)
+   ============================================================ */
+.btn{
+  padding:7px 12px;border-radius:8px;background:var(--panel2);border:1px solid var(--border);
+  color:var(--text);font-size:12px;transition:background .15s,transform .12s;
+}
+.btn:hover{background:color-mix(in srgb,var(--accent) 28%,var(--panel2));transform:translateY(-1px)}
+.btn.primary{background:var(--accent);border-color:transparent;color:#fff;font-weight:600}
+.btn.danger{background:rgba(225,29,72,.18);border-color:rgba(225,29,72,.45);color:#fda4af}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.input{
+  width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);
+  background:rgba(255,255,255,.06);font-size:13px;
+}
+#modal{position:fixed;inset:0;z-index:9;display:none;align-items:center;justify-content:center;background:rgba(4,8,20,.6);backdrop-filter:blur(6px)}
+#modal.open{display:flex}
+.modal-card{
+  width:min(420px,calc(100vw - 32px));background:var(--panel);border:1px solid var(--border);
+  border-radius:16px;padding:20px;box-shadow:var(--shadow);animation:pop .2s ease;
+}
+.modal-card h3{margin:0 0 8px;font-size:16px}
+.modal-card p{margin:0 0 14px;font-size:13px;color:var(--muted);line-height:1.5}
+.modal-card .input{margin-bottom:16px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px}
+#toasts{position:fixed;top:14px;right:14px;z-index:10;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{
+  padding:10px 14px;border-radius:10px;background:var(--panel);border:1px solid var(--border);
+  box-shadow:var(--shadow);font-size:12px;color:var(--text);animation:toastIn .25s ease;
+  max-width:300px;
+}
+.toast.error{border-color:rgba(251,113,133,.6)}
+.toast.success{border-color:rgba(74,222,128,.6)}
+@keyframes pop{from{opacity:0;transform:scale(.94) translateY(8px)}to{opacity:1;transform:none}}
+@keyframes toastIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+
+/* ============================================================
+   6. FILE MANAGER
+   ============================================================ */
+.fm{height:100%;display:flex;flex-direction:column;background:var(--panel)}
+.fm-toolbar{display:flex;gap:6px;padding:10px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.fm-toolbar .sep{width:1px;background:var(--border);margin:0 3px}
+.fm-path{display:flex;align-items:center;gap:4px;padding:9px 12px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);overflow-x:auto;white-space:nowrap}
+.fm-path button{color:var(--accent);font-size:12px;padding:2px 4px;border-radius:5px}
+.fm-path button:hover{background:var(--accent-soft)}
+.fm-list{flex:1;overflow:auto;padding:6px}
+.fm-row{
+  display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;
+  font-size:13px;border:1px solid transparent;cursor:default;
+}
+.fm-row:hover{background:rgba(255,255,255,.05)}
+.fm-row.selected{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+.fm-row .ico{font-size:18px;width:22px;text-align:center}
+.fm-row .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fm-row .meta{font-size:11px;color:var(--muted)}
+.fm-empty{display:grid;place-items:center;height:100%;color:var(--muted);font-size:13px;text-align:center;padding:20px}
+.fm-status{padding:7px 12px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+
+/* ============================================================
+   7. NOTES
+   ============================================================ */
+.notes{height:100%;display:flex;background:var(--panel)}
+.notes-list{width:170px;flex:0 0 170px;border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+.notes-list-head{padding:10px;border-bottom:1px solid var(--border);display:flex;gap:6px}
+.notes-list-head .btn{flex:1;padding:6px}
+.notes-items{flex:1;overflow:auto;padding:6px}
+.note-item{padding:8px 9px;border-radius:8px;font-size:12px;margin-bottom:4px;border:1px solid transparent;cursor:pointer}
+.note-item:hover{background:rgba(255,255,255,.05)}
+.note-item.active{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+.note-item b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.note-item small{color:var(--muted);font-size:10px}
+.notes-edit{flex:1;display:flex;flex-direction:column;min-width:0}
+.notes-edit textarea{flex:1;width:100%;resize:none;border:0;background:transparent;padding:18px;font-size:14px;line-height:1.6;outline:none;color:var(--text)}
+.notes-foot{padding:8px 14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
+
+/* ============================================================
+   8. CALCULATOR
+   ============================================================ */
+.calc{height:100%;display:flex;flex-direction:column;background:var(--panel);padding:12px;gap:10px}
+.calc-display{
+  flex:0 0 auto;min-height:76px;border-radius:12px;background:rgba(0,0,0,.20);
+  border:1px solid var(--border);display:flex;flex-direction:column;align-items:flex-end;
+  justify-content:center;padding:10px 14px;overflow:hidden;
+}
+.calc-expr{font-size:12px;color:var(--muted);height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.calc-value{font-size:32px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.calc-grid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:1fr;gap:7px;min-height:0}
+.calc-grid button{border-radius:10px;background:var(--panel2);border:1px solid var(--border);font-size:16px;transition:transform .1s,background .15s}
+.calc-grid button:hover{background:color-mix(in srgb,var(--accent) 25%,var(--panel2))}
+.calc-grid button:active{transform:scale(.94)}
+.calc-grid button.op{color:var(--accent);font-weight:700}
+.calc-grid button.eq{background:var(--accent);color:#fff;font-weight:700}
+.calc-grid button.fn{font-size:13px;color:var(--muted)}
+
+/* ============================================================
+   9. SETTINGS + ABOUT + TEXT EDITOR
+   ============================================================ */
+.settings{height:100%;overflow:auto;padding:18px}
+.settings h2{margin:0 0 4px;font-size:17px}
+.settings .sub{color:var(--muted);font-size:12px;margin-bottom:18px}
+.settings section{margin-bottom:22px}
+.settings h4{margin:0 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.swatch{width:64px;height:48px;border-radius:10px;border:2px solid transparent;position:relative;transition:transform .15s}
+.swatch:hover{transform:translateY(-2px)}
+.swatch.active{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.swatch span{position:absolute;left:0;right:0;bottom:-18px;text-align:center;font-size:10px;color:var(--muted)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:var(--panel2);font-size:12px}
+.chip.active{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 2px var(--accent-soft);font-weight:700}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--border);font-size:12px}
+.about{height:100%;display:grid;place-items:center;text-align:center;padding:24px}
+.about .logo{font-size:46px}
+.about h2{margin:8px 0 4px}
+.about p{color:var(--muted);font-size:12px;line-height:1.6;max-width:340px}
+.editor{height:100%;display:flex;flex-direction:column}
+.editor textarea{flex:1;resize:none;border:0;background:transparent;padding:16px;font:13px/1.6 ui-monospace,Consolas,monospace;color:var(--text);outline:none}
+.editor-bar{display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+.editor-bar .grow{flex:1}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:rgba(140,155,200,.35);border-radius:8px}
+::-webkit-scrollbar-track{background:transparent}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body data-theme="dark">
+<div id="desktop">
+  <div id="wallpaper" data-style="aurora"></div>
+  <div id="icons"></div>
+  <div id="windows"></div>
+  <div id="taskbar">
+    <button id="startBtn" title="Start">✦</button>
+    <div id="taskWindows"></div>
+    <div class="tray"><div class="clock"><b id="clockTime">--:--</b><small id="clockDate">—</small></div></div>
+  </div>
+  <div id="startMenu">
+    <input id="startSearch" class="input" placeholder="Search apps…" autocomplete="off">
+    <div class="start-label">Applications</div>
+    <div class="start-grid" id="startGrid"></div>
+    <div class="start-foot"><span>NovaOS 1.0</span><span id="startClock">—</span></div>
+  </div>
+</div>
+<div id="modal"></div>
+<div id="toasts"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ============================================================
+   UTILITIES + PERSISTENCE
+   ============================================================ */
+const $  = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+const uid = () => Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-4);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clamp = (v,a,b) => Math.min(Math.max(v,a),b);
+
+const KEYS = { notes:'nova.notes', files:'nova.files', settings:'nova.settings' };
+const store = {
+  get(key, fallback){
+    try { const raw = localStorage.getItem(key); return raw === null ? fallback : JSON.parse(raw); }
+    catch(e){ return fallback; }
+  },
+  set(key, value){
+    try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+    catch(e){ toast('Storage full or unavailable — changes are session-only','error'); return false; }
+  }
+};
+
+function toast(message, type=''){
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = message;
+  $('#toasts').appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateX(30px)'; setTimeout(()=>el.remove(),220); }, 2400);
+}
+
+/* Accessible promise-based modal (replaces native prompt/confirm) */
+function modal({title, message='', input=false, defaultValue='', ok='OK', cancel='Cancel', danger=false}){
+  return new Promise(resolve => {
+    const root = $('#modal');
+    root.innerHTML = `<div class="modal-card">
+      <h3>${esc(title)}</h3>
+      ${message ? `<p>${esc(message)}</p>` : ''}
+      ${input ? `<input class="input" id="modalInput" value="${esc(defaultValue)}" autocomplete="off">` : ''}
+      <div class="modal-actions">
+        <button class="btn" data-m="cancel">${esc(cancel)}</button>
+        <button class="btn ${danger?'danger':'primary'}" data-m="ok">${esc(ok)}</button>
+      </div></div>`;
+    root.classList.add('open');
+    const field = $('#modalInput', root);
+    if(field){ field.focus(); field.select(); }
+    const done = value => {
+      document.removeEventListener('keydown', keyHandler, true);
+      root.classList.remove('open'); root.innerHTML=''; resolve(value);
+    };
+    const accept = () => done(input ? (field ? field.value : '') : true);
+    const keyHandler = e => {
+      if(e.key === 'Escape'){ e.preventDefault(); done(null); }
+      else if(e.key === 'Enter'){ e.preventDefault(); accept(); }
+    };
+    document.addEventListener('keydown', keyHandler, true);
+    $('[data-m="ok"]', root).addEventListener('click', accept);
+    $('[data-m="cancel"]', root).addEventListener('click', () => done(null));
+    root.addEventListener('click', e => { if(e.target === root) done(null); }, {once:true});
+  });
+}
+const askText = (t, msg, def='') => modal({title:t, message:msg, input:true, defaultValue:def, ok:'Save'});
+const askConfirm = (t, msg, danger=true) => modal({title:t, message:msg, ok:'Confirm', danger});
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const defaultFiles = () => [
+  {id:'root', name:'Home', type:'folder', parent:null, content:'', modified:Date.now()},
+  {id:uid(), name:'Documents', type:'folder', parent:'root', content:'', modified:Date.now()},
+  {id:uid(), name:'Pictures', type:'folder', parent:'root', content:'', modified:Date.now()},
+  {id:uid(), name:'Projects', type:'folder', parent:'root', content:'', modified:Date.now()},
+  {id:uid(), name:'welcome.txt', type:'file', parent:'root', content:'Welcome to NovaOS!\n\nTry the apps from the Start menu.\nRight-drag? No — just drag windows by their title bar.', modified:Date.now()}
+];
+const defaultNotes = () => [{id:uid(), text:'My first note\n\nEverything you type here is saved to localStorage automatically — even after a page refresh.', updated:Date.now()}];
+const defaultSettings = () => ({wallpaper:'aurora', theme:'dark', accent:'#7d8cff'});
+
+const state = {
+  files: store.get(KEYS.files, null) || defaultFiles(),
+  notes: store.get(KEYS.notes, null) || defaultNotes(),
+  settings: Object.assign(defaultSettings(), store.get(KEYS.settings, {}) || {}),
+  windows: [], z:20, active:null, clipboard:null
+};
+function saveFiles(){ store.set(KEYS.files, state.files); }
+function saveNotes(){ store.set(KEYS.notes, state.notes); }
+function saveSettings(){ store.set(KEYS.settings, state.settings); applySettings(); }
+
+/* ============================================================
+   FILE SYSTEM HELPERS
+   ============================================================ */
+const findItem = id => state.files.find(f => f.id === id) || null;
+const childrenOf = parent => state.files.filter(f => f.parent === parent);
+function pathTo(id){
+  const path=[]; let cur=findItem(id); let guard=0;
+  while(cur && guard++ < 50){ path.unshift(cur); cur = cur.parent ? findItem(cur.parent) : null; }
+  return path;
+}
+function isDescendant(candidate, ancestorId){
+  let cur = findItem(candidate), guard=0;
+  while(cur && cur.parent && guard++ < 50){
+    if(cur.parent === ancestorId) return true;
+    cur = findItem(cur.parent);
+  }
+  return false;
+}
+function uniqueName(name, parent, exceptId){
+  const taken = new Set(childrenOf(parent).filter(f=>f.id!==exceptId).map(f=>f.name.toLowerCase()));
+  if(!taken.has(name.toLowerCase())) return name;
+  let n=2, base=name.replace(/ \(\d+\)$/,'');
+  while(taken.has(`${base} (${n})`.toLowerCase())) n++;
+  return `${base} (${n})`;
+}
+const INVALID_NAME = /[\\/:*?"<>|]/;
+
+/* ============================================================
+   WINDOW MANAGER
+   ============================================================ */
+const layer = $('#windows');
+const DESKTOP = $('#desktop');
+const taskbar = $('#taskbar');
+
+function focusWindow(win){
+  if(!win || win.minimized) return;
+  state.z++; win.el.style.zIndex = state.z;
+  state.windows.forEach(w => w.el.classList.toggle('active', w === win));
+  state.active = win;
+  renderTaskbar();
+}
+function topVisibleWindow(){
+  return state.windows.filter(w=>!w.minimized).sort((a,b)=>(+a.el.style.zIndex||0)-(+b.el.style.zIndex||0)).pop() || null;
+}
+function minimizeWindow(win){
+  if(!win || win.minimized) return;
+  win.el.classList.add('minimizing');
+  setTimeout(() => { win.minimized = true; win.el.style.display='none'; win.el.classList.remove('minimizing'); if(state.active===win){ state.active=null; focusWindow(topVisibleWindow()); } renderTaskbar(); }, 170);
+}
+function restoreWindow(win){
+  if(!win) return;
+  win.minimized=false; win.el.style.display='flex';
+  requestAnimationFrame(()=>{ win.el.classList.add('ready'); focusWindow(win); });
+}
+function toggleMaximize(win){
+  if(!win) return;
+  const h = DESKTOP.clientHeight - taskbar.offsetHeight;
+  if(win.maximized){
+    Object.assign(win.el.style, win.prevRect);
+    win.maximized=false;
+  } else {
+    win.prevRect = {left:win.el.style.left, top:win.el.style.top, width:win.el.style.width, height:win.el.style.height};
+    Object.assign(win.el.style, {left:'0px', top:'0px', width:DESKTOP.clientWidth+'px', height:h+'px'});
+    win.maximized=true;
+  }
+  win.el.querySelector('[data-act="max"]').textContent = win.maximized ? '❐' : '□';
+}
+function closeWindow(win){
+  if(!win) return;
+  win.cleanups.forEach(fn => { try{ fn(); }catch(e){} });
+  win.el.remove();
+  state.windows = state.windows.filter(w => w !== win);
+  if(state.active === win) state.active = null;
+  focusWindow(topVisibleWindow());
+  closeStartMenu();
+  renderTaskbar();
+}
+
+function bindWindowInteraction(win){
+  const el = win.el;
+  $$('.win-controls button', el).forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const act = btn.dataset.act;
+    if(act==='min') minimizeWindow(win);
+    else if(act==='max') toggleMaximize(win);
+    else if(act==='close') closeWindow(win);
+  }));
+  el.addEventListener('pointerdown', () => { if(state.active !== win) focusWindow(win); });
+
+  const drag = (e, mode, dir) => {
+    if(e.button !== 0 || win.maximized) return;
+    if(e.target.closest('.win-controls')) return;
+    e.preventDefault();
+    el.classList.add('no-transition');
+    const r = el.getBoundingClientRect();
+    const s = {x:e.clientX, y:e.clientY, left:r.left, top:r.top, w:r.width, h:r.height};
+    const bounds = {w:DESKTOP.clientWidth, h:DESKTOP.clientHeight - taskbar.offsetHeight};
+    const move = ev => {
+      const dx = ev.clientX - s.x, dy = ev.clientY - s.y;
+      if(mode === 'move'){
+        el.style.left = clamp(s.left+dx, -s.w+140, bounds.w-120) + 'px';
+        el.style.top  = clamp(s.top+dy, 0, bounds.h-42) + 'px';
+      } else {
+        let {left,top,w,h} = s;
+        if(dir.includes('e')) w = clamp(s.w+dx, 300, bounds.w - s.left);
+        if(dir.includes('s')) h = clamp(s.h+dy, 190, bounds.h - s.top);
+        if(dir.includes('w')){ const nw = clamp(s.w-dx, 300, s.left+s.w); left = s.left + (s.w-nw); w = nw; }
+        if(dir.includes('n')){ const nh = clamp(s.h-dy, 190, s.top+s.h); top = s.top + (s.h-nh); h = nh; }
+        Object.assign(el.style, {left:left+'px', top:top+'px', width:w+'px', height:h+'px'});
+      }
+    };
+    const up = () => { document.removeEventListener('pointermove', move); el.classList.remove('no-transition'); };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up, {once:true});
+  };
+  $('.titlebar', el).addEventListener('pointerdown', e => drag(e,'move'));
+  $$('.resize-handle', el).forEach(h => h.addEventListener('pointerdown', e => { e.stopPropagation(); drag(e,'resize',h.dataset.dir); }));
+}
+
+function openWindow(appKey, opts={}){
+  const app = APPS[appKey];
+  if(!app) return null;
+  const id = uid();
+  const el = document.createElement('div');
+  el.className = 'window';
+  el.dataset.id = id;
+  el.innerHTML = `<div class="titlebar">
+      <span class="win-icon">${app.icon}</span>
+      <span class="win-title">${esc(opts.title || app.title)}</span>
+      <div class="win-controls">
+        <button data-act="min" title="Minimise">─</button>
+        <button data-act="max" title="Maximise">□</button>
+        <button data-act="close" title="Close">✕</button>
+      </div></div>
+    <div class="win-body"></div>
+    ${['n','s','e','w','ne','nw','se','sw'].map(d=>`<div class="resize-handle" data-dir="${d}"></div>`).join('')}`;
+  const w = Math.min(opts.width || app.width || 720, DESKTOP.clientWidth-16);
+  const h = Math.min(opts.height || app.height || 460, DESKTOP.clientHeight - taskbar.offsetHeight - 16);
+  const offset = state.windows.length * 26;
+  Object.assign(el.style, {
+    left: clamp(60 + (offset % 260), 8, Math.max(8, DESKTOP.clientWidth-w-8)) + 'px',
+    top:  clamp(46 + (offset % 180), 6, Math.max(6, DESKTOP.clientHeight-taskbar.offsetHeight-h-6)) + 'px',
+    width: w+'px', height: h+'px', zIndex: ++state.z
+  });
+  const win = {id, appKey, el, body:$('.win-body', el), title:opts.title || app.title, icon:app.icon,
+               minimized:false, maximized:false, prevRect:null, cleanups:[], data:opts.data || {}};
+  try { app.create(win); }
+  catch(err){ win.body.innerHTML = `<div class="fm-empty">This app could not start.<br><small>${esc(err.message)}</small></div>`; }
+  layer.appendChild(el);
+  state.windows.push(win);
+  bindWindowInteraction(win);
+  focusWindow(win);
+  requestAnimationFrame(()=> el.classList.add('ready'));
+  return win;
+}
+
+function renderTaskbar(){
+  const box = $('#taskWindows');
+  box.innerHTML = '';
+  state.windows.forEach(win => {
+    const b = document.createElement('button');
+    b.className = 'task-item' + (state.active===win && !win.minimized ? ' active':'') + (win.minimized?' minimized':'');
+    b.innerHTML = `<span>${win.icon}</span><span>${esc(win.title)}</span>`;
+    b.title = win.title;
+    b.addEventListener('click', () => {
+      if(win.minimized) restoreWindow(win);
+      else if(state.active === win) minimizeWindow(win);
+      else focusWindow(win);
+    });
+    box.appendChild(b);
+  });
+}
+
+/* ============================================================
+   APPLICATION: FILE MANAGER
+   ============================================================ */
+function createFileManager(win){
+  win.data.folder = win.data.folder || 'root';
+  win.data.selected = null;
+  win.body.innerHTML = `<div class="fm">
+    <div class="fm-toolbar">
+      <button class="btn" data-a="up" title="Up">⬆ Up</button>
+      <button class="btn" data-a="newfolder">📁 New folder</button>
+      <button class="btn" data-a="newfile">📄 New file</button>
+      <span class="sep"></span>
+      <button class="btn" data-a="rename">✎ Rename</button>
+      <button class="btn" data-a="delete">🗑 Delete</button>
+      <span class="sep"></span>
+      <button class="btn" data-a="cut">✂ Cut</button>
+      <button class="btn" data-a="copy">⧉ Copy</button>
+      <button class="btn" data-a="paste">📋 Paste</button>
+    </div>
+    <div class="fm-path"></div>
+    <div class="fm-list"></div>
+    <div class="fm-status"></div>
+  </div>`;
+  const pathEl = $('.fm-path', win.body), listEl = $('.fm-list', win.body), statusEl = $('.fm-status', win.body);
+
+  function render(){
+    const items = childrenOf(win.data.folder).sort((a,b)=> (a.type===b.type ? a.name.localeCompare(b.name) : a.type==='folder'?-1:1));
+    pathEl.innerHTML = pathTo(win.data.folder).map((p,i,arr)=>
+      `${i ? '<span>›</span>' : ''}<button data-folder="${p.id}">${esc(i===0?'Home':p.name)}</button>`).join('');
+    if(!items.length){
+      listEl.innerHTML = `<div class="fm-empty">This folder is empty.<br><small>Use the toolbar to create something.</small></div>`;
+    } else {
+      listEl.innerHTML = items.map(it => `<div class="fm-row ${win.data.selected===it.id?'selected':''}" data-id="${it.id}" draggable="true">
+        <span class="ico">${it.type==='folder'?'📁':'📄'}</span>
+        <span class="name">${esc(it.name)}</span>
+        <span class="meta">${it.type==='folder'?'Folder':(it.content.length+' chars')}</span>
+      </div>`).join('');
+    }
+    statusEl.textContent = `${items.length} ${items.length===1?'item':'items'}${state.clipboard ? '  •  clipboard ready' : ''}`;
+  }
+  function selectedItem(){
+    const it = findItem(win.data.selected);
+    if(!it){ toast('Select an item first','error'); return null; }
+    return it;
+  }
+  function openItem(it){
+    if(!it) return;
+    if(it.type==='folder'){ win.data.folder=it.id; win.data.selected=null; render(); }
+    else openWindow('editor', {title:it.name, data:{fileId:it.id}});
+  }
+  function doCreate(type){
+    modal({title:`New ${type}`, message:`Enter a name for the ${type}.`, input:true, defaultValue:type==='folder'?'New Folder':'New File', ok:'Create'})
+      .then(name => {
+        if(name === null) return;
+        name = name.trim();
+        if(!name || INVALID_NAME.test(name)){ toast('Invalid name','error'); return; }
+        const item = {id:uid(), name:uniqueName(name, win.data.folder), type, parent:win.data.folder, content:'', modified:Date.now()};
+        state.files.push(item); saveFiles(); win.data.selected=item.id; render();
+        toast(`${type==='folder'?'Folder':'File'} created`,'success');
+        if(type==='file') openWindow('editor', {title:item.name, data:{fileId:item.id}});
+      });
+  }
+  function moveItem(id, target){
+    const it = findItem(id); const dest = findItem(target);
+    if(!it || !dest || dest.type!=='folder') return;
+    if(it.type==='folder' && (it.id===target || isDescendant(target, it.id))){ toast('Cannot move a folder into itself','error'); return; }
+    if(it.parent===target) return;
+    if(childrenOf(target).some(f=>f.name.toLowerCase()===it.name.toLowerCase())){ toast('An item with that name already exists here','error'); return; }
+    it.parent=target; it.modified=Date.now(); saveFiles();
+    if(win.data.folder===target || pathTo(win.data.folder).some(p=>p.id===id)) render();
+    toast(`Moved “${it.name}”`,'success');
+  }
+  win.data.moveItem = moveItem;
+
+  win.body.addEventListener('click', e => {
+    const pathBtn = e.target.closest('[data-folder]');
+    if(pathBtn){ win.data.folder=pathBtn.dataset.folder; win.data.selected=null; render(); return; }
+    const action = e.target.closest('[data-a]');
+    if(action){
+      const a = action.dataset.a;
+      if(a==='up'){ const cur=findItem(win.data.folder); win.data.folder = cur && cur.parent ? cur.parent : 'root'; win.data.selected=null; render(); }
+      else if(a==='newfolder') doCreate('folder');
+      else if(a==='newfile') doCreate('file');
+      else if(a==='rename'){
+        const it=selectedItem(); if(!it) return;
+        askText('Rename', 'Enter a new name.', it.name).then(name=>{
+          if(name===null) return;
+          name=name.trim();
+          if(!name || INVALID_NAME.test(name)){ toast('Invalid name','error'); return; }
+          const clean = uniqueName(name, it.parent, it.id);
+          if(clean!==name) toast('Name was already used — adjusted automatically');
+          it.name=clean; it.modified=Date.now(); saveFiles(); render();
+          state.windows.forEach(w=>{ if(w.appKey==='editor' && w.data.fileId===it.id) $('.win-title',w.el).textContent=it.name; });
+        });
+      }
+      else if(a==='delete'){
+        const it=selectedItem(); if(!it) return;
+        askConfirm('Delete item', `Delete “${it.name}”${it.type==='folder'?' and everything inside it':''}? This cannot be undone.`)
+          .then(ok=>{
+            if(!ok) return;
+            const ids=new Set([it.id]);
+            if(it.type==='folder'){
+              let changed=true;
+              while(changed){ changed=false; state.files.forEach(f=>{ if(f.parent && ids.has(f.parent) && !ids.has(f.id)){ ids.add(f.id); changed=true; } }); }
+            }
+            state.files=state.files.filter(f=>!ids.has(f.id)); saveFiles();
+            win.data.selected=null; render();
+            state.windows.slice().forEach(w=>{ if(w.appKey==='editor' && ids.has(w.data.fileId)) closeWindow(w); });
+            toast('Deleted','success');
+          });
+      }
+      else if(a==='cut' || a==='copy'){
+        const it=selectedItem(); if(!it) return;
+        state.clipboard={mode:a, id:it.id}; render(); toast(`${a==='cut'?'Cut':'Copied'} “${it.name}”`);
+      }
+      else if(a==='paste'){
+        const clip=state.clipboard;
+        if(!clip){ toast('Clipboard is empty','error'); return; }
+        const it=findItem(clip.id);
+        if(!it){ state.clipboard=null; toast('Clipboard item no longer exists','error'); render(); return; }
+        if(clip.mode==='cut'){ moveItem(it.id, win.data.folder); state.clipboard=null; }
+        else {
+          const copy = JSON.parse(JSON.stringify(it));
+          copy.id=uid(); copy.name=uniqueName(it.name, win.data.folder); copy.parent=win.data.folder; copy.modified=Date.now();
+          if(copy.type==='folder'){
+            const map=new Map([[it.id,copy.id]]);
+            let changed=true;
+            while(changed){ changed=false; state.files.forEach(f=>{
+              if(f.parent && map.has(f.parent) && !map.has(f.id)){ const c=JSON.parse(JSON.stringify(f)); const old=c.id; c.id=uid(); c.parent=map.get(f.parent); state.files.push(c); map.set(old,c.id); changed=true; }
+            }); }
+          }
+          state.files.push(copy); saveFiles(); toast('Pasted','success');
+        }
+        render();
+      }
+      return;
+    }
+    const row=e.target.closest('.fm-row');
+    if(row){
+      const id=row.dataset.id;
+      if(e.detail>=2){ openItem(findItem(id)); return; }
+      win.data.selected=id; render(); return;
+    }
+    if(!e.target.closest('.fm-toolbar')){ win.data.selected=null; render(); }
+  });
+
+  listEl.addEventListener('dragstart', e=>{
+    const row=e.target.closest('.fm-row'); if(!row) return;
+    e.dataTransfer.setData('text/plain', row.dataset.id); e.dataTransfer.effectAllowed='move';
+  });
+  listEl.addEventListener('dragover', e=>{
+    const row=e.target.closest('.fm-row'); if(row && findItem(row.dataset.id)?.type==='folder'){ e.preventDefault(); row.style.background='var(--accent-soft)'; }
+  });
+  listEl.addEventListener('dragleave', e=>{ const row=e.target.closest('.fm-row'); if(row) row.style.background=''; });
+  listEl.addEventListener('drop', e=>{
+    e.preventDefault();
+    const row=e.target.closest('.fm-row'); if(!row) return;
+    row.style.background='';
+    moveItem(e.dataTransfer.getData('text/plain'), row.dataset.id);
+  });
+  render();
+}
+
+/* ============================================================
+   APPLICATION: NOTES (persistent)
+   ============================================================ */
+function createNotes(win){
+  win.body.innerHTML = `<div class="notes">
+    <aside class="notes-list">
+      <div class="notes-list-head"><button class="btn primary" data-n="new">+ New note</button><button class="btn danger" data-n="delete">Delete</button></div>
+      <div class="notes-items"></div>
+    </aside>
+    <main class="notes-edit">
+      <textarea spellcheck="false" placeholder="Start typing…"></textarea>
+      <div class="notes-foot"><span class="save-state">Saved</span><span class="count">0 characters</span></div>
+    </main>
+  </div>`;
+  const listEl=$('.notes-items',win.body), ta=$('textarea',win.body), stateEl=$('.save-state',win.body), countEl=$('.count',win.body);
+  let activeId = win.data.noteId && findNote(win.data.noteId) ? win.data.noteId : (state.notes[0] && state.notes[0].id);
+  let timer=null;
+  const findNote = id => state.notes.find(n=>n.id===id);
+
+  function renderList(){
+    listEl.innerHTML = state.notes.map(n=>{
+      const lines=n.text.split('\n');
+      const title=(lines[0]||'Untitled note').slice(0,28);
+      return `<div class="note-item ${n.id===activeId?'active':''}" data-id="${n.id}"><b>${esc(title)}</b><small>${new Date(n.updated||Date.now()).toLocaleDateString()}</small></div>`;
+    }).join('');
+  }
+  function load(){
+    const n=findNote(activeId);
+    ta.value = n ? n.text : '';
+    countEl.textContent = `${ta.value.length} characters`;
+    stateEl.textContent='Saved'; stateEl.style.color='var(--ok)';
+    renderList();
+  }
+  function flush(){
+    if(timer){ clearTimeout(timer); timer=null; }
+    const n=findNote(activeId);
+    if(!n) return;
+    n.text=ta.value; n.updated=Date.now(); saveNotes();
+    stateEl.textContent='Saved ✓'; stateEl.style.color='var(--ok)';
+  }
+  ta.addEventListener('input', ()=>{
+    const n=findNote(activeId);
+    if(!n) return;
+    n.text=ta.value; n.updated=Date.now();
+    countEl.textContent=`${ta.value.length} characters`;
+    stateEl.textContent='Saving…'; stateEl.style.color='var(--warn)';
+    if(timer) clearTimeout(timer);
+    timer=setTimeout(()=>{ saveNotes(); stateEl.textContent='Saved ✓'; stateEl.style.color='var(--ok)'; timer=null; }, 260);
+  });
+  $('.notes-list-head',win.body).addEventListener('click', e=>{
+    const b=e.target.closest('[data-n]'); if(!b) return;
+    if(b.dataset.n==='new'){
+      const n={id:uid(), text:'', updated:Date.now()};
+      state.notes.unshift(n); saveNotes(); activeId=n.id; load(); ta.focus(); toast('New note created','success');
+    } else {
+      if(!activeId){ toast('No note to delete','error'); return; }
+      const n=findNote(activeId);
+      askConfirm('Delete note', `Delete “${(n.text.split('\n')[0]||'Untitled note').slice(0,30)}”?`).then(ok=>{
+        if(!ok) return;
+        state.notes=state.notes.filter(x=>x.id!==activeId); saveNotes();
+        activeId=state.notes[0]?state.notes[0].id:null; load(); toast('Note deleted');
+      });
+    }
+  });
+  listEl.addEventListener('click', e=>{
+    const item=e.target.closest('[data-id]'); if(!item) return;
+    if(activeId!==item.id){ flush(); activeId=item.id; load(); win.data.noteId=activeId; }
+  });
+  win.cleanups.push(flush);
+  load();
+}
+
+/* ============================================================
+   APPLICATION: CALCULATOR (safe expression parser)
+   ============================================================ */
+function calculate(expr){
+  const s=String(expr).replace(/\s+/g,''); if(!s) throw new Error('Empty expression');
+  let i=0;
+  const factor=()=>{
+    if(s[i]==='-'){ i++; return -factor(); }
+    if(s[i]==='+'){ i++; return factor(); }
+    if(s[i]==='('){ i++; const v=expression(); if(s[i]!==')') throw new Error('Missing bracket'); i++; return v; }
+    const start=i;
+    while(i<s.length && /[0-9.]/.test(s[i])) i++;
+    if(start===i) throw new Error('Invalid input');
+    const raw=s.slice(start,i);
+    if((raw.match(/\./g)||[]).length>1) throw new Error('Invalid number');
+    const n=Number(raw); if(!isFinite(n)) throw new Error('Invalid number');
+    return n;
+  };
+  const term=()=>{
+    let v=factor();
+    while(i<s.length && '*/%'.includes(s[i])){
+      const op=s[i++], r=factor();
+      if((op==='/'||op==='%') && r===0) throw new Error('Cannot divide by zero');
+      v = op==='*'?v*r : op==='/'?v/r : v%r;
+    }
+    return v;
+  };
+  const expression=()=>{
+    let v=term();
+    while(i<s.length && '+-'.includes(s[i])){ const op=s[i++], r=term(); v = op==='+'?v+r:v-r; }
+    return v;
+  };
+  const result=expression();
+  if(i<s.length) throw new Error('Invalid input');
+  if(!isFinite(result)) throw new Error('Result too large');
+  return result;
+}
+function formatNumber(n){
+  if(!isFinite(n)) return 'Error';
+  const r=Math.round(n*1e10)/1e10;
+  return String(r);
+}
+function createCalculator(win){
+  win.body.innerHTML = `<div class="calc">
+    <div class="calc-display"><div class="calc-expr"></div><div class="calc-value">0</div></div>
+    <div class="calc-grid">
+      ${['AC','⌫','%','÷','7','8','9','×','4','5','6','−','1','2','3','+','±','0','.','=']
+        .map(k=>`<button data-k="${k}" class="${'÷×−+%'.includes(k)?'op':k==='='?'eq':['AC','⌫','±','%'].includes(k)?'fn':''}">${k}</button>`).join('')}
+    </div></div>`;
+  const exprEl=$('.calc-expr',win.body), valEl=$('.calc-value',win.body);
+  let expr='', justEvaluated=false;
+  const show=()=>{ exprEl.textContent=expr||''; valEl.textContent=expr ? (safePreview(expr)) : '0'; };
+  const safePreview=e=>{ try{ return formatNumber(calculate(e)); }catch(_){ return e; } };
+  const append=t=>{
+    if(justEvaluated && !'+-×÷%'.includes(t)){ expr=''; justEvaluated=false; }
+    if(t==='AC'){ expr=''; justEvaluated=false; show(); return; }
+    if(t==='⌫'){ expr=expr.slice(0,-1); justEvaluated=false; show(); return; }
+    if(t==='='){
+      if(!expr) return;
+      try{ const v=calculate(expr); exprEl.textContent=expr+' ='; valEl.textContent=formatNumber(v); expr=formatNumber(v); justEvaluated=true; }
+      catch(err){ exprEl.textContent=err.message; valEl.textContent='Error'; expr=''; justEvaluated=true; }
+      return;
+    }
+    if(t==='±'){
+      if(!expr) { expr='-'; show(); return; }
+      expr = /(-?\d+(?:\.\d+)?)$/.test(expr) ? expr.replace(/(-?\d+(?:\.\d+)?)$/, m=>m.startsWith('-')?m.slice(1):'-'+m) : '-'+expr;
+      show(); return;
+    }
+    const map={'×':'*','÷':'/','−':'-'};
+    expr += map[t] || t;
+    if(expr.length>80) expr=expr.slice(0,80);
+    justEvaluated=false; show();
+  };
+  win.body.addEventListener('click', e=>{ const b=e.target.closest('[data-k]'); if(b) append(b.dataset.k); });
+  const onKey = e=>{
+    if(state.active!==win || win.minimized) return;
+    if(e.key>='0'&&e.key<='9'||e.key==='.') append(e.key);
+    else if(['+','-','*','/','%','(',')'].includes(e.key)) append(({'/':'÷','*':'×','-':'−'}[e.key]||e.key));
+    else if(e.key==='Enter'||e.key==='=') append('=');
+    else if(e.key==='Backspace') append('⌫');
+    else if(e.key==='Escape') append('AC');
+    else return;
+    e.preventDefault();
+  };
+  document.addEventListener('keydown', onKey);
+  win.cleanups.push(()=>document.removeEventListener('keydown',onKey));
+  show();
+}
+
+/* ============================================================
+   APPLICATION: SETTINGS
+   ============================================================ */
+const WALLPAPERS = [
+  ['aurora','Aurora','radial-gradient(circle at 20% 20%,#7d8cff,#1a1b45 60%,#0b1026)'],
+  ['sunset','Sunset','linear-gradient(140deg,#2b1055,#f97316)'],
+  ['ocean','Ocean','linear-gradient(140deg,#042a46,#075985,#022c33)'],
+  ['forest','Forest','linear-gradient(140deg,#052e26,#14532d)'],
+  ['mono','Mono','linear-gradient(140deg,#111827,#334155)'],
+  ['candy','Candy','linear-gradient(140deg,#2d1b4e,#4c1d95,#1e3a8a)']
+];
+const THEMES=[['dark','Midnight'],['light','Light'],['emerald','Emerald']];
+const ACCENTS=['#7d8cff','#34d399','#fb7185','#fbbf24','#38bdf8','#c084fc'];
+function applySettings(){
+  document.body.dataset.theme = state.settings.theme;
+  document.documentElement.style.setProperty('--accent', state.settings.accent);
+  $('#wallpaper').dataset.style = state.settings.wallpaper;
+}
+function createSettings(win){
+  win.body.innerHTML = `<div class="settings">
+    <h2>Settings</h2><div class="sub">Personalise your NovaOS workspace. Changes save instantly.</div>
+    <section><h4>Wallpaper</h4><div class="swatches">${WALLPAPERS.map(([id,name,css])=>
+      `<button class="swatch ${state.settings.wallpaper===id?'active':''}" data-w="${id}" style="background:${css}" title="${name}"><span>${name}</span></button>`).join('')}</div></section>
+    <section><h4>Theme</h4><div class="chips">${THEMES.map(([id,name])=>
+      `<button class="chip ${state.settings.theme===id?'active':''}" data-t="${id}">${name}</button>`).join('')}</div></section>
+    <section><h4>Accent colour</h4><div class="chips">${ACCENTS.map(c=>
+      `<button class="chip ${state.settings.accent===c?'active':''}" data-c="${c}" style="border-color:${c};color:${c};background:${c}22">${c.toUpperCase()}</button>`).join('')}</div></section>
+    <section><h4>Storage &amp; system</h4>
+      <div class="set-row"><span>Saved notes</span><b>${state.notes.length}</b></div>
+      <div class="set-row"><span>Saved files &amp; folders</span><b>${state.files.length-1}</b></div>
+      <div class="set-row"><span>Approx. localStorage used</span><b>${Math.round(JSON.stringify(state).length/1024*10)/10} KB</b></div>
+      <div class="set-row"><span>Reset appearance</span><button class="btn" data-s="reset">Restore defaults</button></div>
+      <div class="set-row"><span>Clear all app data</span><button class="btn danger" data-s="clear">Erase everything</button></div>
+    </section>
+  </div>`;
+  const refreshChips = () => {
+    $$('[data-w]',win.body).forEach(b=>b.classList.toggle('active',b.dataset.w===state.settings.wallpaper));
+    $$('[data-t]',win.body).forEach(b=>b.classList.toggle('active',b.dataset.t===state.settings.theme));
+    $$('[data-c]',win.body).forEach(b=>b.classList.toggle('active',b.dataset.c===state.settings.accent));
+  };
+  win.body.addEventListener('click', e=>{
+    const w=e.target.closest('[data-w]'), t=e.target.closest('[data-t]'), c=e.target.closest('[data-c]'), s=e.target.closest('[data-s]');
+    if(w){ state.settings.wallpaper=w.dataset.w; saveSettings(); refreshChips(); }
+    else if(t){ state.settings.theme=t.dataset.t; saveSettings(); refreshChips(); }
+    else if(c){ state.settings.accent=c.dataset.c; saveSettings(); refreshChips(); }
+    else if(s && s.dataset.s==='reset'){ state.settings=defaultSettings(); saveSettings(); refreshChips(); toast('Appearance restored','success'); }
+    else if(s && s.dataset.s==='clear'){
+      askConfirm('Erase all data','Delete all notes, files and settings, then reload?',true).then(ok=>{
+        if(!ok) return;
+        Object.values(KEYS).forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+        toast('All data erased — reloading'); setTimeout(()=>location.reload(),700);
+      });
+    }
+  });
+}
+
+/* ============================================================
+   APPLICATION: TEXT EDITOR + ABOUT
+   ============================================================ */
+function createEditor(win){
+  const item=findItem(win.data.fileId);
+  if(!item){ win.body.innerHTML='<div class="fm-empty">This file no longer exists.</div>'; return; }
+  win.body.innerHTML = `<div class="editor">
+    <textarea spellcheck="false"></textarea>
+    <div class="editor-bar"><span class="dirty">All changes saved</span><span class="grow"></span><button class="btn primary" data-save>Save</button></div>
+  </div>`;
+  const ta=$('textarea',win.body), dirty=$('.dirty',win.body);
+  ta.value=item.content || '';
+  const save=()=>{
+    item.content=ta.value; item.modified=Date.now(); saveFiles();
+    dirty.textContent='All changes saved'; dirty.style.color='var(--ok)';
+  };
+  ta.addEventListener('input',()=>{ dirty.textContent='Unsaved changes'; dirty.style.color='var(--warn)'; });
+  $('[data-save]',win.body).addEventListener('click',()=>{ save(); toast('File saved','success'); });
+  win.cleanups.push(save);
+}
+function createAbout(win){
+  win.body.innerHTML = `<div class="about"><div>
+    <div class="logo">✦</div><h2>NovaOS 1.0</h2>
+    <p>A compact desktop environment built with nothing but HTML, CSS and vanilla JavaScript. Windows, files, notes, calculator and settings all run locally in your browser — your data never leaves this device.</p>
+    <p>Tip: drag title bars to move windows, edges to resize, and click taskbar buttons to switch apps.</p>
+  </div></div>`;
+}
+
+/* ============================================================
+   APP REGISTRY / START MENU / DESKTOP ICONS
+   ============================================================ */
+const APPS = {
+  files:    {title:'File Manager', icon:'📁', width:760, height:470, create:createFileManager},
+  notes:    {title:'Notes',        icon:'📝', width:640, height:450, create:createNotes},
+  calc:     {title:'Calculator',   icon:'🧮', width:340, height:460, create:createCalculator},
+  settings: {title:'Settings',     icon:'⚙️', width:640, height:520, create:createSettings},
+  about:    {title:'About NovaOS', icon:'ℹ️', width:460, height:340, create:createAbout},
+  editor:   {title:'Text Editor',  icon:'📄', width:560, height:420, create:createEditor, hidden:true}
+};
+const DESKTOP_ICONS = [
+  {key:'files', label:'My Files', glyph:'📁'},
+  {key:'notes', label:'Notes', glyph:'📝'},
+  {key:'calc', label:'Calculator', glyph:'🧮'},
+  {key:'settings', label:'Settings', glyph:'⚙️'},
+  {key:'about', label:'About', glyph:'ℹ️'}
+];
+function renderIcons(){
+  const box=$('#icons');
+  box.innerHTML = DESKTOP_ICONS.map(ic=>`<div class="icon" data-key="${ic.key}" tabindex="0">
+    <span class="glyph">${ic.glyph}</span><span class="label">${ic.label}</span></div>`).join('');
+  box.addEventListener('click', e=>{
+    const el=e.target.closest('.icon'); if(!el) return;
+    $$('.icon',box).forEach(i=>i.classList.toggle('selected', i===el));
+    openApp(el.dataset.key);
+  });
+  box.addEventListener('dblclick', e=>{
+    const el=e.target.closest('.icon'); if(el) openApp(el.dataset.key);
+  });
+  box.addEventListener('keydown', e=>{
+    const el=e.target.closest('.icon'); if(el && (e.key==='Enter'||e.key===' ')){ e.preventDefault(); openApp(el.dataset.key); }
+  });
+}
+function openApp(key, opts){ return openWindow(key, opts); }
+
+function renderStart(){
+  const grid=$('#startGrid');
+  const q=$('#startSearch').value.trim().toLowerCase();
+  const list=Object.entries(APPS).filter(([k,a])=>!a.hidden && (!q || a.title.toLowerCase().includes(q) || k.includes(q)));
+  grid.innerHTML = list.length ? list.map(([k,a])=>`<button class="start-tile" data-app="${k}"><span class="glyph">${a.icon}</span>${esc(a.title)}</button>`).join('')
+    : `<div style="grid-column:1/-1;color:var(--muted);font-size:12px;padding:12px;text-align:center">No apps match “${esc(q)}”</div>`;
+}
+function openStartMenu(){ renderStart(); $('#startMenu').classList.add('open'); $('#startSearch').value=''; renderStart(); }
+function closeStartMenu(){ $('#startMenu').classList.remove('open'); }
+$('#startBtn').addEventListener('click', e=>{ e.stopPropagation(); $('#startMenu').classList.contains('open') ? closeStartMenu() : openStartMenu(); });
+$('#startSearch').addEventListener('input', renderStart);
+$('#startGrid').addEventListener('click', e=>{
+  const tile=e.target.closest('[data-app]'); if(!tile) return;
+  openApp(tile.dataset.app); closeStartMenu();
+});
+document.addEventListener('pointerdown', e=>{
+  if($('#startMenu').classList.contains('open') && !e.target.closest('#startMenu') && !e.target.closest('#startBtn')) closeStartMenu();
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeStartMenu(); });
+
+/* ============================================================
+   CLOCK + BOOT
+   ============================================================ */
+function tick(){
+  const d=new Date();
+  const t=d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  const date=d.toLocaleDateString([], {day:'numeric',month:'short',year:'numeric'});
+  $('#clockTime').textContent=t; $('#clockDate').textContent=date; $('#startClock').textContent=t;
+}
+setInterval(tick,1000); tick();
+
+if(!Array.isArray(state.files) || !state.files.some(f=>f.id==='root')){ state.files=defaultFiles(); saveFiles(); }
+if(!Array.isArray(state.notes)){ state.notes=defaultNotes(); saveNotes(); }
+applySettings();
+renderIcons();
+renderTaskbar();
+
+/* Small public handle for diagnostics and automated checks. */
+window.NovaOS = {
+  state, openApp, closeWindow, calculate, moveItem:null,
+  getWindows: () => state.windows.map(w=>({id:w.id, app:w.appKey, title:w.title, minimized:w.minimized, maximized:w.maximized})),
+  saveAll: () => { saveFiles(); saveNotes(); saveSettings(); }
+};
+})();
+</script>
+</body>
+</html>
+
